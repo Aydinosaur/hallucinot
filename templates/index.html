@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>HalluciNot</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="hero-panel panel">
+        <div class="hero-background" aria-hidden="true">
+          <svg viewBox="0 0 1200 520" preserveAspectRatio="none">
+            <path d="M-40 140C132 82 228 70 360 114C490 157 592 245 726 238C861 231 947 130 1110 118C1222 110 1328 156 1370 180" />
+            <path d="M-20 246C118 222 206 176 318 190C456 208 502 326 668 332C828 338 904 202 1056 188C1180 176 1276 208 1350 246" />
+            <path d="M-80 352C86 296 186 300 286 338C430 394 582 452 730 432C894 410 1000 286 1144 274C1246 266 1336 310 1398 344" />
+          </svg>
+        </div>
+        <div class="hero-copy">
+          <p class="kicker">Citation Integrity Platform</p>
+          <h1>Verify legal citations with a cleaner signal-to-noise ratio.</h1>
+          <p class="hero-text">
+            HalluciNot extracts case citations, compares them against CourtListener, and explains exactly
+            which part of the citation passed or failed: reporter cite, case caption, or year.
+          </p>
+          <div class="hero-pills">
+            <span class="hero-pill">CourtListener Connected</span>
+            <span class="hero-pill muted-pill">Built for brief review</span>
+          </div>
+        </div>
+
+        <aside class="control-panel">
+          <form id="analyze-form" class="uploader-form">
+            <input type="hidden" name="provider" value="CourtListener">
+
+            <div class="field fixed-backend">
+              <span class="field-label">Verification backend</span>
+              <div class="backend-lockup">
+                <strong>CourtListener</strong>
+                <span>Official citation lookup pipeline</span>
+              </div>
+            </div>
+
+            <label class="dropzone" for="document">
+              <input id="document" name="document" type="file" accept=".pdf,.docx,.txt" required>
+              <span class="dropzone-grid"></span>
+              <div class="dropzone-copy">
+                <strong>Drop a brief or motion here</strong>
+                <span>or click to upload a `.pdf`, `.docx`, or `.txt` file</span>
+                <em id="file-name">No file selected</em>
+              </div>
+            </label>
+
+            <div class="actions">
+              <button type="submit">Analyze Document</button>
+              <p class="hint">
+                {% if courtlistener_configured %}
+                  CourtListener is configured on the server. Upload a document and run verification.
+                {% else %}
+                  CourtListener is not configured yet. Add `COURTLISTENER_API_TOKEN` to your local `.env` or shell, then reload the app.
+                {% endif %}
+              </p>
+            </div>
+          </form>
+
+          <div class="micro-panel">
+            <div>
+              <span class="micro-label">Workflow</span>
+              <p>Upload → extract → verify → inspect mismatches</p>
+            </div>
+            <div>
+              <span class="micro-label">Output</span>
+              <p>Compact report cards with check-level feedback</p>
+            </div>
+          </div>
+        </aside>
+      </section>
+
+      <section id="error-box" class="panel error-panel hidden"></section>
+
+      <section id="results-shell" class="results-shell hidden">
+        <section class="summary-band" id="stats-grid"></section>
+
+        <section class="report-panel panel">
+          <div class="report-header">
+            <div>
+              <p class="kicker report-kicker">Results · CourtListener</p>
+              <h2>Citation Report</h2>
+              <p class="report-subtitle">Each citation card shows the citation text, the matched case, and the exact checks used to verify or reject it.</p>
+            </div>
+            <button id="download-json" class="secondary" type="button">Download JSON</button>
+          </div>
+
+          <div class="results-controls">
+            <div class="legend">
+              <span class="legend-dot verified"></span><span>Verified</span>
+              <span class="legend-dot rejected"></span><span>Rejected</span>
+              <span class="legend-dot ambiguous"></span><span>Ambiguous</span>
+              <span class="legend-dot neutral"></span><span>Not Found / Other</span>
+            </div>
+            <p class="results-note">Long captions and verification evidence are compressed into cards instead of overflowing into a raw table.</p>
+          </div>
+
+          <div id="results-body" class="results-grid"></div>
+        </section>
+      </section>
+    </main>
+
+    <script>
+      const form = document.getElementById("analyze-form");
+      const fileInput = document.getElementById("document");
+      const fileName = document.getElementById("file-name");
+      const errorBox = document.getElementById("error-box");
+      const resultsShell = document.getElementById("results-shell");
+      const statsGrid = document.getElementById("stats-grid");
+      const resultsBody = document.getElementById("results-body");
+      const downloadButton = document.getElementById("download-json");
+
+      let latestReportJson = "[]";
+
+      fileInput.addEventListener("change", () => {
+        fileName.textContent = fileInput.files[0]?.name || "No file selected";
+      });
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        errorBox.classList.add("hidden");
+        resultsShell.classList.add("hidden");
+        resultsBody.innerHTML = "";
+        statsGrid.innerHTML = "";
+
+        const formData = new FormData(form);
+
+        try {
+          const response = await fetch("/analyze", {
+            method: "POST",
+            body: formData,
+          });
+          const payload = await response.json();
+          if (!response.ok) {
+            throw new Error(payload.error || "Analysis failed.");
+          }
+
+          latestReportJson = payload.report_json;
+          renderStats(payload.summary);
+          renderRows(payload.results);
+          resultsShell.classList.remove("hidden");
+          document.querySelector(".report-kicker").textContent = `Results · ${payload.provider}`;
+        } catch (error) {
+          errorBox.textContent = error.message;
+          errorBox.classList.remove("hidden");
+        }
+      });
+
+      downloadButton.addEventListener("click", () => {
+        const blob = new Blob([latestReportJson], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "hallucinot-report.json";
+        link.click();
+        URL.revokeObjectURL(url);
+      });
+
+      function renderStats(summary) {
+        const entries = [
+          ["Characters", summary.characters],
+          ["Citations", summary.citations_found],
+          ["Verified", summary.verified],
+          ["Rejected", summary.rejected],
+          ["Ambiguous", summary.ambiguous],
+          ["Not Found", summary.not_found],
+          ["Quoted", summary.quoted_snippets],
+          ["Id. Links", summary.id_references],
+        ];
+
+        for (const [label, value] of entries) {
+          const card = document.createElement("article");
+          card.className = "metric-card";
+          card.innerHTML = `<span>${label}</span><strong>${value}</strong>`;
+          statsGrid.appendChild(card);
+        }
+      }
+
+      function renderRows(results) {
+        results.forEach((item, index) => {
+          const card = document.createElement("details");
+          card.className = `result-card status-${item.status}`;
+          card.open = index < 2;
+          card.style.setProperty("--delay", `${index * 40}ms`);
+
+          const topCandidate = item.candidates[0];
+          const matchedCitationText = topCandidate?.matched_citations?.join(" · ") || "";
+
+          card.innerHTML = `
+            <summary class="card-summary">
+              <div class="summary-left">
+                <span class="status-pill status-pill-${item.status}">${escapeHtml(formatStatus(item.status))}</span>
+                <div class="citation-block">
+                  <span class="section-label">Citation</span>
+                  <h3>${escapeHtml(item.citation)}</h3>
+                  <p class="raw-citation">${escapeHtml(item.extracted_case_name || item.raw_text || "")}</p>
+                </div>
+              </div>
+
+              <div class="summary-mid">
+                <div class="compact-card">
+                  <span class="section-label">Document Caption</span>
+                  <p class="case-name">${escapeHtml(item.extracted_case_name || "Not extracted")}</p>
+                </div>
+                <div class="compact-card">
+                  <span class="section-label">Matched Case</span>
+                  <p class="case-name">${escapeHtml(topCandidate?.case_name || "No candidate returned")}</p>
+                </div>
+              </div>
+
+              <div class="summary-right">
+                <div class="decision-snippet">
+                  <span class="section-label">Decision</span>
+                  <p>${escapeHtml(item.summary || "")}</p>
+                </div>
+                <span class="card-index">${String(index + 1).padStart(2, "0")}</span>
+              </div>
+            </summary>
+
+            <div class="card-content">
+              <div class="card-rail">
+                <section class="inline-panel checks-panel">
+                  <span class="section-label">Verification Checks</span>
+                  ${renderChecks(item.checks || [])}
+                </section>
+
+                <section class="inline-panel meta-panel">
+                  <span class="section-label">Context</span>
+                  <div class="meta-grid">
+                    <div class="meta-line"><span>Document year</span><strong>${escapeHtml(item.metadata?.year || "N/A")}</strong></div>
+                    <div class="meta-line"><span>Filed</span><strong>${escapeHtml(topCandidate?.date_filed || "N/A")}</strong></div>
+                    <div class="meta-line"><span>Court</span><strong>${escapeHtml(topCandidate?.court || "N/A")}</strong></div>
+                    <div class="meta-line"><span>Reporter matches</span><strong>${escapeHtml(matchedCitationText || "N/A")}</strong></div>
+                  </div>
+                </section>
+              </div>
+
+              <div class="card-footer">
+                ${renderOptionalBlocks(item)}
+              </div>
+            </div>
+          `;
+          resultsBody.appendChild(card);
+        });
+      }
+
+      function renderChecks(checks) {
+        if (!checks.length) {
+          return `<p class="empty-copy">No check details available.</p>`;
+        }
+
+        const items = checks.map((check) => `
+          <li class="check-item">
+            <div class="check-header">
+              <strong>${escapeHtml(check.field)}</strong>
+              <span class="mini-pill mini-pill-${escapeHtml(check.status)}">${escapeHtml(formatStatus(check.status))}</span>
+            </div>
+            ${check.expected ? `<div class="check-copy"><span>Expected</span><p>${escapeHtml(check.expected)}</p></div>` : ""}
+            ${check.actual ? `<div class="check-copy"><span>Actual</span><p>${escapeHtml(check.actual)}</p></div>` : ""}
+            <p class="check-summary">${escapeHtml(check.summary || "")}</p>
+          </li>
+        `).join("");
+        return `<ul class="check-list">${items}</ul>`;
+      }
+
+      function renderOptionalBlocks(item) {
+        const blocks = [];
+
+        if (item.quote_snippet) {
+          blocks.push(`
+            <div class="footer-block">
+              <span class="section-label">Quoted Language</span>
+              <blockquote>${escapeHtml(item.quote_snippet)}</blockquote>
+            </div>
+          `);
+        }
+
+        if (item.id_references?.length) {
+          const idItems = item.id_references.map((ref) => `
+            <li>
+              <strong>${escapeHtml(ref.raw_text)}</strong>
+              ${ref.pin_cite_page ? `<span class="inline-meta">page ${escapeHtml(ref.pin_cite_page)}</span>` : ""}
+              <p>${escapeHtml(ref.summary || "")}</p>
+            </li>
+          `).join("");
+          blocks.push(`
+            <div class="footer-block">
+              <span class="section-label">Id. References</span>
+              <ul class="inline-list">${idItems}</ul>
+            </div>
+          `);
+        }
+
+        if (!blocks.length) {
+          blocks.push(`
+            <div class="footer-block">
+              <span class="section-label">Notes</span>
+              <p>No quote snippets or linked Id. references were detected for this citation.</p>
+            </div>
+          `);
+        }
+
+        return blocks.join("");
+      }
+
+      function formatStatus(value) {
+        return String(value || "")
+          .replaceAll("_", " ")
+          .replace(/\b\w/g, (letter) => letter.toUpperCase());
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
+      }
+    </script>
+  </body>
+</html>

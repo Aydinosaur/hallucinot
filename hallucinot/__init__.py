@@ -1,0 +1,1 @@
+"""HalluciNot package."""
