@@ -350,6 +350,22 @@ button:focus-visible,
   gap: 14px;
 }
 
+.privacy-notice {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 143, 132, 0.24);
+  border-radius: 16px;
+  background: rgba(255, 143, 132, 0.09);
+}
+
+.privacy-notice p {
+  margin: 0;
+  color: #ffd7d1;
+  line-height: 1.65;
+  font-size: 0.94rem;
+}
+
 button {
   cursor: pointer;
   transition: transform 180ms ease-out, background-color 180ms ease-out, border-color 180ms ease-out, color 180ms ease-out, box-shadow 180ms ease-out;

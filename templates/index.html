@@ -18,7 +18,7 @@
         </div>
         <div class="hero-copy">
           <p class="kicker">Citation Integrity Platform</p>
-          <h1>Verify legal citations with a cleaner signal-to-noise ratio.</h1>
+          <h1>Verify legal citations with clearer, faster review.</h1>
           <p class="hero-text">
             HalluciNot extracts case citations, compares them against CourtListener, and explains exactly
             which part of the citation passed or failed: reporter cite, case caption, or year.
@@ -59,6 +59,15 @@
                 {% else %}
                   CourtListener is not configured yet. Add `COURTLISTENER_API_TOKEN` to your local `.env` or shell, then reload the app.
                 {% endif %}
+              </p>
+            </div>
+
+            <div class="privacy-notice" role="note" aria-label="Privacy notice">
+              <span class="section-label">Privacy Notice</span>
+              <p>
+                Uploaded files are processed by this web app on the hosting server, and citation lookup data is sent
+                to CourtListener for verification. Do not upload sealed, privileged, or highly confidential documents
+                unless you are comfortable with that workflow.
               </p>
             </div>
           </form>
