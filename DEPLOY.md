@@ -1,60 +1,66 @@
 # Deploy HalluciNot
 
-## Fastest option: Render
+HalluciNot is now prepared for:
 
-This repo is ready for Render with [`render.yaml`](/Users/ayden/claudeStuff/hallucinot/render.yaml).
+- **Frontend**: Netlify
+- **Backend**: Google Cloud Run
 
-### 1. Push this folder to GitHub
+## 1. Deploy the backend to Cloud Run
 
-If this is not already a Git repo:
-
-```bash
-cd /Users/ayden/claudeStuff/hallucinot
-git init
-git add .
-git commit -m "Prepare HalluciNot for deployment"
-```
-
-Then create a GitHub repo and push:
+From `/Users/ayden/claudeStuff/hallucinot`:
 
 ```bash
-git remote add origin <your-github-repo-url>
-git branch -M main
-git push -u origin main
+gcloud run deploy hallucinot-api \
+  --source . \
+  --region us-central1 \
+  --allow-unauthenticated \
+  --set-env-vars COURTLISTENER_API_TOKEN=your-token-here
 ```
 
-### 2. Create the Render service
-
-1. Log in to [Render](https://render.com/)
-2. Click `New +`
-3. Choose `Blueprint`
-4. Select your GitHub repo
-5. Render will detect [`render.yaml`](/Users/ayden/claudeStuff/hallucinot/render.yaml)
-
-### 3. Add your secret
-
-In Render, set:
-
-```txt
-COURTLISTENER_API_TOKEN=your-token-here
-```
-
-### 4. Deploy
-
-Render will build with:
+Optional CORS restriction:
 
 ```bash
-pip install -r requirements.txt
+gcloud run services update hallucinot-api \
+  --region us-central1 \
+  --update-env-vars ALLOWED_ORIGIN=https://your-netlify-site.netlify.app
 ```
 
-and start with:
+The API routes are:
 
-```bash
-gunicorn app:app
+- `GET /api/health`
+- `POST /api/analyze`
+
+## 2. Configure the frontend for Netlify
+
+Edit [`frontend/config.js`](/Users/ayden/claudeStuff/hallucinot/frontend/config.js):
+
+```js
+window.HALLUCINOT_CONFIG = {
+  API_BASE_URL: "https://your-cloud-run-service-url.a.run.app",
+};
 ```
+
+## 3. Deploy the frontend to Netlify
+
+This repo already includes [`netlify.toml`](/Users/ayden/claudeStuff/hallucinot/netlify.toml), which publishes the `frontend/` folder.
+
+On Netlify:
+
+1. Create a new site from Git
+2. Select this repo
+3. Netlify should detect:
+   - publish directory: `frontend`
+4. Deploy
+
+## 4. Recommended next hardening steps
+
+- Restrict `ALLOWED_ORIGIN` to your real Netlify domain
+- Add upload size limits in Cloud Run settings if needed
+- Add a privacy policy page to the Netlify frontend
+- Replace the placeholder value in [`frontend/config.js`](/Users/ayden/claudeStuff/hallucinot/frontend/config.js) before publishing
 
 ## Notes
 
-- The Flask app is fine behind `gunicorn`; you do not need to run `python app.py` in production.
-- Keep the CourtListener token only in Render environment variables, not in the repo.
-- The free tier may sleep after inactivity depending on Render's current policy.
+- The backend keeps the CourtListener token server-side.
+- The frontend is fully static and can be cached and served quickly by Netlify.
+- Local Flask templates remain in the repo for design continuity, but the deployed frontend should come from `frontend/`.

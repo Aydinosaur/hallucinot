@@ -29,13 +29,18 @@ python app.py
 
 ## Deploy on the web
 
-The repo now includes:
+This repo now supports a split deployment:
 
-- [`requirements.txt`](/Users/ayden/claudeStuff/hallucinot/requirements.txt) for production installs
-- [`render.yaml`](/Users/ayden/claudeStuff/hallucinot/render.yaml) for Render deployment
-- [`DEPLOY.md`](/Users/ayden/claudeStuff/hallucinot/DEPLOY.md) with step-by-step hosting instructions
+- Netlify for the frontend in [`frontend/`](/Users/ayden/claudeStuff/hallucinot/frontend)
+- Cloud Run for the Python API in [`app.py`](/Users/ayden/claudeStuff/hallucinot/app.py)
 
-If you want the quickest path, push this repo to GitHub and deploy it on Render as a Blueprint.
+Deployment files included:
+
+- [`requirements.txt`](/Users/ayden/claudeStuff/hallucinot/requirements.txt)
+- [`Dockerfile`](/Users/ayden/claudeStuff/hallucinot/Dockerfile)
+- [`netlify.toml`](/Users/ayden/claudeStuff/hallucinot/netlify.toml)
+- [`render.yaml`](/Users/ayden/claudeStuff/hallucinot/render.yaml)
+- [`DEPLOY.md`](/Users/ayden/claudeStuff/hallucinot/DEPLOY.md)
 
 ## CourtListener setup
 

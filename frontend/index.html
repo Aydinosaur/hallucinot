@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>HalluciNot</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="hero-panel panel">
+        <div class="hero-background" aria-hidden="true">
+          <svg viewBox="0 0 1200 520" preserveAspectRatio="none">
+            <path d="M-40 140C132 82 228 70 360 114C490 157 592 245 726 238C861 231 947 130 1110 118C1222 110 1328 156 1370 180" />
+            <path d="M-20 246C118 222 206 176 318 190C456 208 502 326 668 332C828 338 904 202 1056 188C1180 176 1276 208 1350 246" />
+            <path d="M-80 352C86 296 186 300 286 338C430 394 582 452 730 432C894 410 1000 286 1144 274C1246 266 1336 310 1398 344" />
+          </svg>
+        </div>
+        <div class="hero-copy">
+          <p class="kicker">Citation Integrity Platform</p>
+          <h1>Verify legal citations with clearer, faster review.</h1>
+          <p class="hero-text">
+            HalluciNot extracts case citations, compares them against CourtListener, and explains exactly
+            which part of the citation passed or failed: reporter cite, case caption, or year.
+          </p>
+          <div class="hero-pills">
+            <span class="hero-pill">Netlify Frontend</span>
+            <span class="hero-pill muted-pill">Cloud Run API</span>
+          </div>
+        </div>
+
+        <aside class="control-panel">
+          <form id="analyze-form" class="uploader-form">
+            <div class="field fixed-backend">
+              <span class="field-label">Verification backend</span>
+              <div class="backend-lockup">
+                <strong>CourtListener</strong>
+                <span>Official citation lookup pipeline</span>
+              </div>
+            </div>
+
+            <label class="dropzone" for="document">
+              <input id="document" name="document" type="file" accept=".pdf,.docx,.txt" required>
+              <span class="dropzone-grid"></span>
+              <div class="dropzone-copy">
+                <strong>Drop a brief or motion here</strong>
+                <span>or click to upload a `.pdf`, `.docx`, or `.txt` file</span>
+                <em id="file-name">No file selected</em>
+              </div>
+            </label>
+
+            <div class="actions">
+              <button type="submit">Analyze Document</button>
+              <p class="hint" id="api-status">This frontend will send uploads to the configured HalluciNot API.</p>
+            </div>
+
+            <div class="privacy-notice" role="note" aria-label="Privacy notice">
+              <span class="section-label">Privacy Notice</span>
+              <p>
+                Uploaded files are processed by the HalluciNot backend, and citation lookup data is sent
+                to CourtListener for verification. Do not upload sealed, privileged, or highly confidential documents
+                unless you are comfortable with that workflow.
+              </p>
+            </div>
+          </form>
+
+          <div class="micro-panel">
+            <div>
+              <span class="micro-label">Workflow</span>
+              <p>Upload → extract → verify → inspect mismatches</p>
+            </div>
+            <div>
+              <span class="micro-label">Output</span>
+              <p>Compact report cards with check-level feedback</p>
+            </div>
+          </div>
+        </aside>
+      </section>
+
+      <section id="error-box" class="panel error-panel hidden"></section>
+
+      <section id="results-shell" class="results-shell hidden">
+        <section class="summary-band" id="stats-grid"></section>
+
+        <section class="report-panel panel">
+          <div class="report-header">
+            <div>
+              <p class="kicker report-kicker">Results · CourtListener</p>
+              <h2>Citation Report</h2>
+              <p class="report-subtitle">Each citation card shows the citation text, the matched case, and the exact checks used to verify or reject it.</p>
+            </div>
+            <button id="download-json" class="secondary" type="button">Download JSON</button>
+          </div>
+
+          <div class="results-controls">
+            <div class="legend">
+              <span class="legend-dot verified"></span><span>Verified</span>
+              <span class="legend-dot rejected"></span><span>Rejected</span>
+              <span class="legend-dot ambiguous"></span><span>Ambiguous</span>
+              <span class="legend-dot neutral"></span><span>Not Found / Other</span>
+            </div>
+            <p class="results-note">Long captions and verification evidence are compressed into cards instead of overflowing into a raw table.</p>
+          </div>
+
+          <div id="results-body" class="results-grid"></div>
+        </section>
+      </section>
+    </main>
+
+    <script src="./config.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
