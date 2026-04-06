@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import os
+import time
+from collections import defaultdict, deque
 
 from flask import Flask, jsonify, request
 
@@ -14,6 +16,9 @@ from hallucinot.verification import build_verifier
 def create_app() -> Flask:
     app = Flask(__name__)
     app.config["MAX_CONTENT_LENGTH"] = int(os.getenv("MAX_UPLOAD_MB", "15")) * 1024 * 1024
+    rate_limit_window = int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "300"))
+    rate_limit_max = int(os.getenv("RATE_LIMIT_MAX_REQUESTS", "20"))
+    request_log: defaultdict[str, deque[float]] = defaultdict(deque)
 
     @app.after_request
     def add_cors_headers(response):
@@ -30,6 +35,20 @@ def create_app() -> Flask:
     def analyze():
         if request.method == "OPTIONS":
             return ("", 204)
+
+        client_ip = _client_ip()
+        allowed, retry_after = _check_rate_limit(request_log, client_ip, rate_limit_window, rate_limit_max)
+        if not allowed:
+            response = jsonify(
+                {
+                    "error": (
+                        f"Rate limit exceeded. Please wait about {retry_after} seconds before uploading another document."
+                    )
+                }
+            )
+            response.status_code = 429
+            response.headers["Retry-After"] = str(retry_after)
+            return response
 
         uploaded = request.files.get("document")
         provider = request.form.get("provider", "CourtListener")
@@ -91,6 +110,8 @@ def create_app() -> Flask:
                 "ok": True,
                 "service": "hallucinot-api",
                 "courtlistenerConfigured": bool(get_courtlistener_token()),
+                "rateLimitWindowSeconds": rate_limit_window,
+                "rateLimitMaxRequests": rate_limit_max,
             }
         )
 
@@ -148,6 +169,30 @@ def _serialize_result(result):
             for candidate in result.candidates
         ],
     }
+
+
+def _client_ip() -> str:
+    forwarded = request.headers.get("X-Forwarded-For", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.remote_addr or "unknown"
+
+
+def _check_rate_limit(
+    request_log: defaultdict[str, deque[float]],
+    client_ip: str,
+    window_seconds: int,
+    max_requests: int,
+) -> tuple[bool, int]:
+    now = time.time()
+    timestamps = request_log[client_ip]
+    while timestamps and now - timestamps[0] > window_seconds:
+        timestamps.popleft()
+    if len(timestamps) >= max_requests:
+        retry_after = max(1, int(window_seconds - (now - timestamps[0])))
+        return False, retry_after
+    timestamps.append(now)
+    return True, 0
 
 
 app = create_app()

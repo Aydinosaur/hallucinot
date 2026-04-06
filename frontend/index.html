@@ -105,7 +105,26 @@
           <div id="results-body" class="results-grid"></div>
         </section>
       </section>
+
+      <footer class="site-footer">
+        <div>
+          <span class="section-label">HalluciNot</span>
+          <p>Legal citation review with structured verification feedback.</p>
+        </div>
+        <nav class="footer-links" aria-label="Legal">
+          <a href="./privacy.html">Privacy</a>
+          <a href="./terms.html">Terms</a>
+        </nav>
+      </footer>
     </main>
+
+    <div id="loading-overlay" class="loading-overlay hidden" aria-live="polite" aria-busy="true">
+      <div class="loading-card">
+        <div class="loading-spinner"></div>
+        <strong>Analyzing document</strong>
+        <p>Extracting citations, checking CourtListener, and building your report.</p>
+      </div>
+    </div>
 
     <script src="./config.js"></script>
     <script src="./app.js"></script>

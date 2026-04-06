@@ -56,7 +56,8 @@ On Netlify:
 
 - Restrict `ALLOWED_ORIGIN` to your real Netlify domain
 - Add upload size limits in Cloud Run settings if needed
-- Add a privacy policy page to the Netlify frontend
+- Privacy and Terms pages now live in `frontend/privacy.html` and `frontend/terms.html`
+- Tune `RATE_LIMIT_MAX_REQUESTS` and `RATE_LIMIT_WINDOW_SECONDS` for your traffic level
 - Replace the placeholder value in [`frontend/config.js`](/Users/ayden/claudeStuff/hallucinot/frontend/config.js) before publishing
 
 ## Notes

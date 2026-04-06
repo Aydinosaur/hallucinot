@@ -809,6 +809,106 @@ blockquote {
   display: none;
 }
 
+.site-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  margin-top: 22px;
+  padding: 18px 6px 0;
+}
+
+.site-footer p {
+  margin: 6px 0 0;
+  color: var(--muted);
+}
+
+.footer-links {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.footer-links a,
+.legal-copy a {
+  color: var(--text);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.footer-links a:hover,
+.legal-copy a:hover {
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.legal-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+}
+
+.legal-panel {
+  max-width: 840px;
+  padding: 28px;
+}
+
+.legal-copy {
+  display: grid;
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.legal-copy p {
+  margin: 0;
+  color: var(--muted-strong);
+  line-height: 1.8;
+}
+
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(6, 8, 11, 0.62);
+  backdrop-filter: blur(10px);
+  z-index: 20;
+}
+
+.loading-card {
+  display: grid;
+  gap: 12px;
+  width: min(420px, 100%);
+  padding: 24px;
+  border: 1px solid var(--line-strong);
+  border-radius: 22px;
+  background: rgba(18, 21, 26, 0.94);
+  box-shadow: var(--shadow-lg);
+  text-align: center;
+}
+
+.loading-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.loading-spinner {
+  width: 42px;
+  height: 42px;
+  margin: 0 auto;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.14);
+  border-top-color: rgba(255, 255, 255, 0.85);
+  animation: spin 880ms linear infinite;
+}
+
+button:disabled {
+  cursor: progress;
+  opacity: 0.72;
+  transform: none;
+}
+
 @keyframes card-enter {
   from {
     opacity: 0;
@@ -828,6 +928,15 @@ blockquote {
   to {
     transform: translate3d(-28px, 10px, 0);
     opacity: 1;
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
   }
 }
 
@@ -878,6 +987,11 @@ blockquote {
 
   .report-header,
   .results-controls {
+    flex-direction: column;
+    align-items: start;
+  }
+
+  .site-footer {
     flex-direction: column;
     align-items: start;
   }

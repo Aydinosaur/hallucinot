@@ -10,6 +10,8 @@ const statsGrid = document.getElementById("stats-grid");
 const resultsBody = document.getElementById("results-body");
 const downloadButton = document.getElementById("download-json");
 const apiStatus = document.getElementById("api-status");
+const loadingOverlay = document.getElementById("loading-overlay");
+const submitButton = form.querySelector('button[type="submit"]');
 
 let latestReportJson = "[]";
 
@@ -27,10 +29,12 @@ form.addEventListener("submit", async (event) => {
   resultsShell.classList.add("hidden");
   resultsBody.innerHTML = "";
   statsGrid.innerHTML = "";
+  setLoading(true);
 
   if (!API_BASE_URL || API_BASE_URL.includes("your-cloud-run-service-url")) {
     errorBox.textContent = "The frontend is not configured yet. Set frontend/config.js to your deployed Cloud Run URL.";
     errorBox.classList.remove("hidden");
+    setLoading(false);
     return;
   }
 
@@ -55,6 +59,8 @@ form.addEventListener("submit", async (event) => {
   } catch (error) {
     errorBox.textContent = error.message;
     errorBox.classList.remove("hidden");
+  } finally {
+    setLoading(false);
   }
 });
 
@@ -228,4 +234,10 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function setLoading(isLoading) {
+  submitButton.disabled = isLoading;
+  submitButton.textContent = isLoading ? "Analyzing..." : "Analyze Document";
+  loadingOverlay.classList.toggle("hidden", !isLoading);
 }

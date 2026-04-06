@@ -11,6 +11,9 @@ It currently supports:
   - `CourtListener` as the primary live verification backend
   - a local demo mode when no API credentials are available
 - A human-readable report in the browser
+- Static legal pages for Privacy and Terms
+- A loading overlay during analysis
+- Lightweight per-IP rate limiting on the API
 
 ## Why CourtListener for the MVP
 
@@ -71,3 +74,12 @@ If you choose `Demo`, the app still extracts citations without running live veri
 - CourtListener does not look up statutes, law reviews, `id.`, or `supra` directly. The app handles `Id.` locally by attaching it to the previous citation.
 - CourtListener limits citation lookup requests to 250 citations per request and documents throttles for high-volume usage.
 - CourtListener does not cover every proprietary reporter workflow that Lexis or Westlaw may support.
+
+## Optional backend controls
+
+The API supports these optional environment variables:
+
+- `ALLOWED_ORIGIN` to restrict CORS to your Netlify domain
+- `MAX_UPLOAD_MB` to cap upload size
+- `RATE_LIMIT_MAX_REQUESTS` to control per-IP upload attempts per window
+- `RATE_LIMIT_WINDOW_SECONDS` to set the length of that rate-limit window
