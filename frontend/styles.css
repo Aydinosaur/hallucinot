@@ -194,6 +194,23 @@ h2 {
   gap: 12px;
 }
 
+.hero-credit {
+  margin: -2px 0 0;
+  color: var(--muted-strong);
+  font-size: 0.96rem;
+}
+
+.hero-credit a {
+  color: var(--text);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+  transition: border-color 160ms ease, color 160ms ease;
+}
+
+.hero-credit a:hover {
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
 .hero-pill {
   display: inline-flex;
   align-items: center;
@@ -823,6 +840,11 @@ blockquote {
   color: var(--muted);
 }
 
+.footer-copy {
+  display: grid;
+  gap: 4px;
+}
+
 .footer-links {
   display: flex;
   gap: 16px;
@@ -873,6 +895,10 @@ blockquote {
   background: rgba(6, 8, 11, 0.62);
   backdrop-filter: blur(10px);
   z-index: 20;
+}
+
+.loading-overlay.hidden {
+  display: none;
 }
 
 .loading-card {
