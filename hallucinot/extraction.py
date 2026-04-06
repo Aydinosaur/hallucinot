@@ -3,19 +3,26 @@ from __future__ import annotations
 import re
 
 from eyecite import get_citations
-from eyecite.models import FullCaseCitation, IdCitation
+from eyecite.models import CaseCitation, FullCaseCitation, IdCitation
 
 from hallucinot.models import CitationRecord, IdReference
 
 QUOTE_WINDOW = 300
+CASE_NAME_PATTERN = re.compile(
+    r"([A-Z][A-Za-z0-9&.,'() -]{1,140}?)\s+v\.\s+([A-Z][A-Za-z0-9&.,'() -]{1,160}?)(?=(?:,\s*\d+\s+[A-Z]|$))"
+)
 
 
-def extract_citations(text: str) -> list[CitationRecord]:
+def extract_citations(text: str, styled_ranges: list[tuple[int, int]] | None = None) -> list[CitationRecord]:
     citations: list[CitationRecord] = []
     seen: set[tuple[str, int, int]] = set()
     previous_full_citation: CitationRecord | None = None
 
     for citation in get_citations(text):
+        if not isinstance(citation, (CaseCitation, IdCitation)):
+            previous_full_citation = None
+            continue
+
         start, end = citation.full_span()
         raw_text = text[start:end]
         span_key = (raw_text.strip(), start, end)
@@ -29,7 +36,9 @@ def extract_citations(text: str) -> list[CitationRecord]:
             continue
 
         normalized_text = _normalize_citation_text(citation)
-        extracted_case_name = _extract_case_name(citation, text, start, end)
+        extracted_case_name = _extract_case_name(citation, text, start, end, styled_ranges or [])
+        raw_text = _clean_raw_case_text(raw_text, extracted_case_name)
+        extracted_case_name = _extract_case_name_from_metadata(raw_text, start, styled_ranges or []) or extracted_case_name
 
         metadata = _extract_metadata(citation)
         if "year" not in metadata:
@@ -99,12 +108,19 @@ def _find_quote_near_citation(text: str, start: int, end: int) -> str | None:
     return snippet if snippet else None
 
 
-def _extract_case_name(citation: object, text: str, start: int, end: int) -> str | None:
+def _extract_case_name(
+    citation: object,
+    text: str,
+    start: int,
+    end: int,
+    styled_ranges: list[tuple[int, int]],
+) -> str | None:
+    context_text, context_start = _context_slice(text, start, end)
     candidates = [
         _extract_case_name_from_citation_metadata(citation),
-        _extract_case_name_from_metadata(text[start:end]),
-        _extract_case_name_from_window(text, start, end),
-        _extract_case_name_from_sentence(_context_slice(text, start, end)),
+        _extract_case_name_from_metadata(text[start:end], start, styled_ranges),
+        _extract_case_name_from_window(text, start, end, styled_ranges),
+        _extract_case_name_from_sentence(context_text, context_start, styled_ranges),
     ]
     usable = [candidate for candidate in candidates if candidate]
     if not usable:
@@ -112,14 +128,13 @@ def _extract_case_name(citation: object, text: str, start: int, end: int) -> str
     return max(usable, key=_case_name_score)
 
 
-def _extract_case_name_from_metadata(raw_text: str) -> str | None:
-    match = re.search(
-        r"([A-Z][A-Za-z0-9&.,' -]{1,120}\s+v\.\s+[A-Z][A-Za-z0-9&.,' -]{1,120})",
-        raw_text,
-    )
-    if not match:
-        return None
-    return _clean_case_name(match.group(1))
+def _extract_case_name_from_metadata(
+    raw_text: str,
+    offset: int = 0,
+    styled_ranges: list[tuple[int, int]] | None = None,
+) -> str | None:
+    candidate = _extract_best_case_name(raw_text, offset, styled_ranges or [])
+    return _clean_case_name(candidate) if candidate else None
 
 
 def _extract_case_name_from_citation_metadata(citation: object) -> str | None:
@@ -131,37 +146,90 @@ def _extract_case_name_from_citation_metadata(citation: object) -> str | None:
     return _clean_case_name(f"{plaintiff} v. {defendant}")
 
 
-def _extract_case_name_from_window(text: str, start: int, end: int) -> str | None:
-    window = text[max(0, start - 180):min(len(text), end + 40)]
-    return _extract_case_name_from_sentence(window)
+def _extract_case_name_from_window(
+    text: str,
+    start: int,
+    end: int,
+    styled_ranges: list[tuple[int, int]],
+) -> str | None:
+    window_start = max(0, start - 180)
+    window = text[window_start:min(len(text), end + 40)]
+    return _extract_case_name_from_sentence(window, window_start, styled_ranges)
 
 
-def _context_slice(text: str, start: int, end: int) -> str:
+def _context_slice(text: str, start: int, end: int) -> tuple[str, int]:
     left_bound = max(text.rfind(".", 0, start), text.rfind(";", 0, start), text.rfind("\n", 0, start))
     right_candidates = [
         idx for idx in (text.find(".", end), text.find(";", end), text.find("\n", end)) if idx != -1
     ]
     right_bound = min(right_candidates) if right_candidates else min(len(text), end + 240)
-    return text[max(0, left_bound + 1):right_bound]
+    slice_start = max(0, left_bound + 1)
+    return text[slice_start:right_bound], slice_start
 
 
-def _extract_case_name_from_sentence(sentence: str) -> str | None:
-    patterns = [
-        r"([A-Z][A-Za-z0-9&.,' -]{1,120}?\s+v\.\s+[A-Z][A-Za-z0-9&.,' -]{1,120}?)(?=,\s*\d+\s+[A-Z])",
-        r"([A-Z][A-Za-z0-9&.,' -]{1,120}?\s+v\.\s+[A-Z][A-Za-z0-9&.,' -]{1,120}?)",
-    ]
-    for pattern in patterns:
-        matches = re.findall(pattern, sentence)
-        if matches:
-            return _clean_case_name(matches[-1])
-    return None
+def _extract_case_name_from_sentence(
+    sentence: str,
+    offset: int = 0,
+    styled_ranges: list[tuple[int, int]] | None = None,
+) -> str | None:
+    candidate = _extract_best_case_name(sentence, offset, styled_ranges or [])
+    return _clean_case_name(candidate) if candidate else None
 
 
 def _clean_case_name(value: str) -> str | None:
     candidate = re.sub(r"\s+", " ", value).strip(" ,.;()")
     candidate = re.sub(r"^.*\b(In|See|Cf\.|But see|Compare|But cf\.)\s+", "", candidate, flags=re.IGNORECASE)
+    extracted = _extract_best_case_name(candidate)
+    if extracted:
+        candidate = extracted
     candidate = re.sub(r",?\s+\d+\s+[A-Z][A-Za-z0-9. ]+\s+\d+.*$", "", candidate)
     return candidate.strip() or None
+
+
+def _extract_best_case_name(text: str, offset: int = 0, styled_ranges: list[tuple[int, int]] | None = None) -> str | None:
+    matches = list(CASE_NAME_PATTERN.finditer(text))
+    if not matches:
+        fallback = list(re.finditer(r"([A-Z][A-Za-z0-9&.,'() -]{1,140}?)\s+v\.\s+([A-Z][A-Za-z0-9&.,'() -]{1,160})", text))
+        if not fallback:
+            return None
+        matches = fallback
+
+    best_match = max(matches, key=lambda match: _case_match_score(match, offset, styled_ranges or []))
+    return f"{best_match.group(1)} v. {best_match.group(2)}"
+
+
+def _clean_raw_case_text(raw_text: str, extracted_case_name: str | None) -> str:
+    match = None
+    matches = list(CASE_NAME_PATTERN.finditer(raw_text))
+    if matches:
+        match = matches[-1]
+    elif extracted_case_name:
+        case_index = raw_text.find(extracted_case_name)
+        if case_index != -1:
+            return raw_text[case_index:].strip()
+
+    if match is None:
+        return raw_text.strip()
+
+    return raw_text[match.start():].strip()
+
+
+def _case_match_score(match: re.Match[str], offset: int, styled_ranges: list[tuple[int, int]]) -> tuple[int, int, int]:
+    candidate = f"{match.group(1)} v. {match.group(2)}"
+    absolute_start = offset + match.start()
+    absolute_end = offset + match.end()
+    styled_characters = _styled_character_count(absolute_start, absolute_end, styled_ranges)
+    return (styled_characters, *_case_name_score(candidate))
+
+
+def _styled_character_count(start: int, end: int, styled_ranges: list[tuple[int, int]]) -> int:
+    total = 0
+    for styled_start, styled_end in styled_ranges:
+        overlap_start = max(start, styled_start)
+        overlap_end = min(end, styled_end)
+        if overlap_start < overlap_end:
+            total += overlap_end - overlap_start
+    return total
 
 
 def _case_name_score(value: str) -> tuple[int, int]:

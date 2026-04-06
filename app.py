@@ -8,7 +8,7 @@ from collections import defaultdict, deque
 from flask import Flask, jsonify, request
 
 from hallucinot.config import get_courtlistener_token
-from hallucinot.document_loader import extract_text
+from hallucinot.document_loader import extract_document
 from hallucinot.extraction import extract_citations
 from hallucinot.verification import build_verifier
 
@@ -53,17 +53,20 @@ def create_app() -> Flask:
         uploaded = request.files.get("document")
         provider = request.form.get("provider", "CourtListener")
         if not uploaded or not uploaded.filename:
-            return jsonify({"error": "Please upload a .pdf, .docx, or .txt file."}), 400
+            return jsonify({"error": "Please upload a .docx file."}), 400
+        if not uploaded.filename.lower().endswith(".docx"):
+            return jsonify({"error": "Only .docx files are supported right now."}), 400
 
         try:
-            text = extract_text(uploaded.filename, uploaded.read())
+            loaded_document = extract_document(uploaded.filename, uploaded.read())
         except Exception as exc:  # noqa: BLE001
             return jsonify({"error": f"Could not read the document: {exc}"}), 400
 
+        text = loaded_document.text
         if not text.strip():
             return jsonify({"error": "No readable text was found in the uploaded document."}), 400
 
-        citations = extract_citations(text)
+        citations = extract_citations(text, styled_ranges=loaded_document.styled_ranges)
         if provider == "CourtListener" and not get_courtlistener_token():
             verifier = build_verifier(provider)
             if verifier.name != "CourtListener":
