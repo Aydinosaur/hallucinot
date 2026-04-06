@@ -24,6 +24,8 @@ def extract_citations(text: str, styled_ranges: list[tuple[int, int]] | None = N
             continue
 
         start, end = citation.full_span()
+        if not isinstance(citation, IdCitation):
+            start = _expand_case_start(text, start, end, styled_ranges or [])
         raw_text = text[start:end]
         span_key = (raw_text.strip(), start, end)
         if span_key in seen:
@@ -212,6 +214,48 @@ def _clean_raw_case_text(raw_text: str, extracted_case_name: str | None) -> str:
         return raw_text.strip()
 
     return raw_text[match.start():].strip()
+
+
+def _expand_case_start(text: str, start: int, end: int, styled_ranges: list[tuple[int, int]]) -> int:
+    if not styled_ranges:
+        return start
+
+    nearby = [span for span in styled_ranges if span[1] >= start - 24 and span[0] <= end]
+    if not nearby:
+        return start
+
+    cluster: list[tuple[int, int]] = []
+    for span_start, span_end in nearby:
+        if span_end >= start and span_start <= end:
+            cluster.append((span_start, span_end))
+
+    if not cluster:
+        for span_start, span_end in nearby:
+            gap_text = text[span_end:start]
+            if span_end < start and len(gap_text) <= 24 and not re.search(r"[.;:!?]", gap_text):
+                cluster.append((span_start, span_end))
+
+    if not cluster:
+        return start
+
+    cluster.sort()
+    expanded_start = min(span_start for span_start, _ in cluster)
+    current_start = expanded_start
+
+    while True:
+        previous = None
+        for span_start, span_end in styled_ranges:
+            if span_end <= current_start:
+                gap_text = text[span_end:current_start]
+                if len(gap_text) <= 6 and not re.search(r"[;:!?]", gap_text):
+                    previous = (span_start, span_end)
+        if previous is None:
+            break
+        if previous[0] >= current_start:
+            break
+        current_start = previous[0]
+
+    return current_start
 
 
 def _case_match_score(match: re.Match[str], offset: int, styled_ranges: list[tuple[int, int]]) -> tuple[int, int, int]:
